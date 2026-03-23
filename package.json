@@ -1,0 +1,10 @@
+{
+  "name": "yourrevenueengine",
+  "version": "1.0.0",
+  "description": "Your Revenue Engine — yourrevenueengine.com",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^8.0.0",
+    "nodemailer": "^6.9.0"
+  }
+}
