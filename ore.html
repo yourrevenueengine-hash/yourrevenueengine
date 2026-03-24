@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORE — Obstacle Removal Exercises</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --black:   #0a0a0a;
+    --concrete:#1a1a18;
+    --steel:   #2a2a28;
+    --rust:    #3a3530;
+    --yellow:  #f5c518;
+    --white:   #f0ede8;
+    --muted:   #8a8880;
+    --accent:  #e8420a;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--black); color: var(--white);
+    font-family: 'Barlow', sans-serif; font-weight: 400;
+    overflow-x: hidden; cursor: crosshair; min-height: 100vh;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 1000; opacity: 0.4;
+  }
+  .tape {
+    background: repeating-linear-gradient(-45deg, var(--yellow) 0px, var(--yellow) 18px, var(--black) 18px, var(--black) 28px);
+    height: 10px; width: 100%;
+  }
+
+  /* ── LOCK SCREEN ── */
+  #lock-screen {
+    position: fixed; inset: 0; background: var(--black); z-index: 500;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 0; padding: 40px 24px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .lock-eyebrow {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase; color: var(--yellow); margin-bottom: 20px;
+  }
+  .lock-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px, 9vw, 100px);
+    letter-spacing: 4px; color: var(--white); text-align: center; line-height: 0.9;
+    margin-bottom: 8px;
+  }
+  .lock-sub {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 600;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--accent);
+    text-align: center; margin-bottom: 32px;
+  }
+  .lock-desc {
+    font-size: 14px; color: var(--muted); text-align: center;
+    max-width: 340px; line-height: 1.7; margin-bottom: 36px;
+  }
+  .lock-desc strong { color: var(--white); font-weight: 500; }
+
+  /* TWO PANELS */
+  .lock-panels {
+    display: flex; gap: 20px; width: 100%; max-width: 560px; flex-wrap: wrap; justify-content: center;
+  }
+  .lock-panel {
+    flex: 1; min-width: 220px;
+    background: var(--concrete); border: 1px solid rgba(245,197,24,0.15); padding: 24px 20px;
+    position: relative;
+  }
+  .lock-panel::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--yellow); }
+  .lock-panel-title {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--yellow); margin-bottom: 14px;
+  }
+  .lock-panel input {
+    background: var(--steel); border: 1px solid rgba(245,197,24,0.2); color: var(--white);
+    font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 2px;
+    padding: 12px 14px; width: 100%; outline: none; margin-bottom: 10px;
+    transition: border-color .15s;
+  }
+  .lock-panel input:focus { border-color: var(--yellow); }
+  .lock-panel input::placeholder { color: var(--muted); font-size: 12px; letter-spacing: 1px; }
+  .lock-error {
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent);
+    letter-spacing: 1px; min-height: 16px; margin-bottom: 8px;
+  }
+  .btn-primary {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--black); background: var(--yellow);
+    padding: 12px 24px; border: none; cursor: pointer;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    width: 100%; transition: all .15s;
+  }
+  .btn-primary:hover { background: var(--white); }
+  .btn-ghost {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted); background: transparent;
+    border: 1px solid rgba(245,197,24,0.25); padding: 12px 24px; cursor: pointer;
+    width: 100%; transition: all .15s; margin-top: 0;
+  }
+  .btn-ghost:hover { color: var(--white); border-color: var(--yellow); }
+
+  .lock-divider {
+    font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted);
+    letter-spacing: 2px; text-align: center; margin: 28px 0 20px;
+  }
+  .wave-link {
+    display: block; text-align: center; margin-top: 28px;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none;
+    transition: color .15s;
+  }
+  .wave-link:hover { color: var(--yellow); }
+  .wave-link span { color: var(--yellow); }
+
+  /* ── APP ── */
+  #app { display: none; }
+  nav {
+    position: sticky; top: 0; z-index: 100; background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(8px); display: flex; justify-content: space-between; align-items: center;
+    padding: 0 40px; height: 56px; border-bottom: 1px solid rgba(245,197,24,0.1);
+  }
+  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px; color: var(--yellow); }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-user { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+  .nav-out {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted); background: none;
+    border: none; cursor: pointer; transition: color .15s;
+  }
+  .nav-out:hover { color: var(--accent); }
+
+  /* TABS */
+  .tab-bar {
+    display: flex; border-bottom: 1px solid rgba(245,197,24,0.1); overflow-x: auto;
+    background: var(--concrete); scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted); padding: 14px 22px;
+    border: none; background: none; cursor: pointer; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all .15s; position: relative; top: 1px;
+  }
+  .tab:hover { color: var(--white); }
+  .tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+  /* PANELS */
+  .panel { display: none; padding: 48px 40px; max-width: 860px; margin: 0 auto; }
+  .panel.active { display: block; }
+  .section-label {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 4px; text-transform: uppercase; color: var(--yellow);
+    margin-bottom: 16px; display: block;
+  }
+  .panel-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: clamp(42px, 6vw, 72px);
+    line-height: 0.95; letter-spacing: 2px; color: var(--white); margin-bottom: 8px;
+  }
+  .panel-sub { font-size: 15px; color: var(--muted); line-height: 1.6; margin-bottom: 36px; max-width: 560px; }
+
+  /* CARDS */
+  .card {
+    background: var(--concrete); border: 1px solid rgba(245,197,24,0.1);
+    padding: 28px; margin-bottom: 20px; position: relative;
+  }
+  .card::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: var(--yellow); }
+  .card-title {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--yellow); margin-bottom: 14px;
+  }
+  .prompt-text { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 14px; font-style: italic; }
+
+  /* INPUTS */
+  textarea, input[type="text"] {
+    background: var(--steel); border: 1px solid rgba(245,197,24,0.15); color: var(--white);
+    font-family: 'Barlow', sans-serif; font-size: 15px; line-height: 1.6;
+    padding: 14px 16px; width: 100%; resize: vertical; outline: none; transition: border-color .15s;
+  }
+  textarea:focus, input[type="text"]:focus { border-color: var(--yellow); }
+  textarea::placeholder, input[type="text"]::placeholder { color: var(--muted); font-size: 14px; }
+  textarea { min-height: 90px; }
+
+  /* SAVE BTNS */
+  .save-btn {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--black); background: var(--yellow);
+    border: none; padding: 10px 24px; cursor: pointer;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+    margin-top: 12px; transition: all .15s;
+  }
+  .save-btn:hover { background: var(--white); }
+  .ghost-btn {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted); background: none;
+    border: 1px solid rgba(245,197,24,0.2); padding: 10px 24px; cursor: pointer;
+    margin-top: 12px; margin-left: 8px; transition: all .15s;
+  }
+  .ghost-btn:hover { color: var(--white); border-color: var(--white); }
+  .saved-msg {
+    font-family: 'DM Mono', monospace; font-size: 11px; color: #4ade80;
+    letter-spacing: 1px; margin-top: 8px; min-height: 16px; display: none;
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex; gap: 32px; background: var(--concrete);
+    border: 1px solid rgba(245,197,24,0.1); padding: 20px 28px; margin-bottom: 32px; flex-wrap: wrap;
+  }
+  .stat-val { font-family: 'Bebas Neue', sans-serif; font-size: 32px; color: var(--yellow); line-height: 1; }
+  .stat-lbl {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 2px;
+  }
+
+  /* THOUGHT RECORD */
+  .thought-step { display: none; }
+  .thought-step.active { display: block; }
+  .step-indicator { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; }
+  .step-dot { width: 8px; height: 8px; background: var(--steel); border-radius: 50%; transition: background .2s; }
+  .step-dot.done { background: var(--yellow); }
+  .step-dot.current { background: var(--accent); }
+  .step-count { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 1px; margin-left: 8px; }
+  .step-question { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; color: var(--white); margin-bottom: 8px; line-height: 1.1; }
+  .step-hint { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+  .nav-btns { display: flex; gap: 4px; margin-top: 12px; align-items: center; }
+
+  /* LIBRARY */
+  .reframe-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .reframe-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .library-entry {
+    background: var(--steel); border-left: 3px solid var(--accent);
+    padding: 16px 20px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  }
+  .library-distortion { font-size: 13px; color: var(--muted); margin-bottom: 4px; font-style: italic; }
+  .library-reframe { font-size: 14px; color: var(--white); line-height: 1.5; }
+  .del-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; flex-shrink: 0; transition: color .15s; }
+  .del-btn:hover { color: var(--accent); }
+  .pill { display: inline-block; font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 4px 10px; background: rgba(245,197,24,0.12); color: var(--yellow); margin-bottom: 16px; }
+
+  /* ACTIVITY */
+  .tracker-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .metric-box { background: var(--concrete); border: 1px solid rgba(245,197,24,0.15); padding: 20px; text-align: center; }
+  .metric-num { font-family: 'Bebas Neue', sans-serif; font-size: 56px; color: var(--yellow); line-height: 1; cursor: pointer; transition: color .15s; user-select: none; }
+  .metric-num:hover { color: var(--white); }
+  .metric-label { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+  .metric-reset { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); background: none; border: none; cursor: pointer; letter-spacing: 1px; margin-top: 6px; display: block; width: 100%; text-align: center; transition: color .15s; }
+  .metric-reset:hover { color: var(--accent); }
+
+  /* WEEKLY */
+  .project-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; background: var(--steel); padding: 14px 16px; margin-bottom: 8px; border-left: 3px solid transparent; transition: border-color .15s; }
+  .project-row.high { border-left-color: var(--accent); }
+  .project-row.mid { border-left-color: var(--yellow); }
+  .project-row.low { border-left-color: #4ade80; }
+  .project-name { font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--white); text-transform: uppercase; }
+  .resistance-wrap { display: flex; align-items: center; gap: 10px; }
+  .resistance-val { font-family: 'DM Mono', monospace; font-size: 18px; color: var(--yellow); min-width: 22px; text-align: right; }
+  input[type="range"] { -webkit-appearance: none; width: 110px; height: 4px; background: var(--rust); outline: none; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--yellow); border-radius: 50%; cursor: pointer; }
+
+  /* VOICE */
+  .voice-card { background: var(--concrete); border: 1px solid rgba(245,197,24,0.1); padding: 24px 28px; margin-bottom: 14px; position: relative; }
+  .voice-card::before { content: attr(data-num); position: absolute; top: 16px; right: 20px; font-family: 'Bebas Neue', sans-serif; font-size: 40px; color: rgba(245,197,24,0.06); letter-spacing: 2px; pointer-events: none; }
+  .voice-prompt { font-size: 17px; color: var(--white); line-height: 1.6; font-weight: 500; margin-bottom: 8px; }
+  .voice-sub { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  .divider { height: 1px; background: rgba(245,197,24,0.08); margin: 28px 0; }
+
+  .day-btn {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+    letter-spacing: 2px; color: var(--muted); background: var(--steel);
+    border: 1px solid rgba(245,197,24,0.15); padding: 8px 12px; cursor: pointer;
+    transition: all .15s;
+  }
+  .day-btn.active { color: var(--black); background: var(--yellow); border-color: var(--yellow); }
+
+  @media (max-width: 600px) {
+    .panel { padding: 28px 16px; }
+    nav { padding: 0 16px; }
+    .tab { padding: 12px 14px; font-size: 11px; }
+    .reframe-row { grid-template-columns: 1fr; }
+    .lock-panels { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen">
+  <div class="lock-eyebrow">// Member access</div>
+  <div class="lock-title">ORE</div>
+  <div class="lock-sub">Obstacle Removal Exercises</div>
+  <p class="lock-desc">A private daily practice tool for service business owners.<br><strong>Built to catch the thoughts that stop you before they do.</strong></p>
+
+  <div class="lock-panels">
+    <!-- EMAIL + KEY LOGIN -->
+    <div class="lock-panel">
+      <div class="lock-panel-title">// Member Login</div>
+      <input type="email" id="login-email" placeholder="Your email address" onkeydown="if(event.key==='Enter')tryLogin()">
+      <input type="text" id="login-key" placeholder="Your access key" onkeydown="if(event.key==='Enter')tryLogin()" style="letter-spacing:3px; text-transform:uppercase;">
+      <div class="lock-error" id="login-error"></div>
+      <button class="btn-primary" onclick="tryLogin()">Enter →</button>
+    </div>
+
+    <!-- GET ACCESS -->
+    <div class="lock-panel" style="display:flex;flex-direction:column;justify-content:space-between;">
+      <div>
+        <div class="lock-panel-title">// Not a member yet?</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px;">$5/month. Cancel any time. Includes the full daily practice suite — morning protocol, thought records, reframe library, activity tracking, weekly review, and voice prompts.</p>
+      </div>
+      <a href="YOUR_WAVE_PAYMENT_LINK_HERE" target="_blank" style="text-decoration:none;">
+        <button class="btn-ghost" style="margin-top:0;">Get Access — $5/mo →</button>
+      </a>
+    </div>
+  </div>
+
+  <a href="/" class="wave-link">← Back to <span>yourrevenueengine.com</span></a>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="tape"></div>
+  <nav>
+    <div style="display:flex;align-items:center;gap:20px;">
+      <a href="/" style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .15s;" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='var(--muted)'">← YRE</a>
+      <div class="nav-logo">ORE</div>
+    </div>
+    <div class="nav-right">
+      <div class="nav-user" id="nav-user"></div>
+      <button class="nav-out" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('morning',this)">Morning</button>
+    <button class="tab" onclick="switchTab('thought',this)">Thought Record</button>
+    <button class="tab" onclick="switchTab('hurdles',this)">Reframe Library</button>
+    <button class="tab" onclick="switchTab('activity',this)">Activity Log</button>
+    <button class="tab" onclick="switchTab('weekly',this)">Weekly Review</button>
+    <button class="tab" onclick="switchTab('voice',this)">Voice Prompts</button>
+    <button class="tab" onclick="switchTab('reminders',this)">⏰ Reminders</button>
+  </div>
+
+  <!-- MORNING -->
+  <div class="panel active" id="panel-morning">
+    <span class="section-label">// Start the engine</span>
+    <h1 class="panel-title">MORNING<br>INTENTION</h1>
+    <p class="panel-sub">Five minutes. One project. One action. That's all this is.</p>
+    <div class="stats-bar">
+      <div><div class="stat-val" id="streak-val">0</div><div class="stat-lbl">Day Streak</div></div>
+      <div><div class="stat-val" id="total-val">0</div><div class="stat-lbl">Total Sessions</div></div>
+      <div><div class="stat-val" id="convos-stat">0</div><div class="stat-lbl">Convos This Week</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">// Active Project</div>
+      <p class="prompt-text">"State the one project you're working on today. Not the whole roadmap — one."</p>
+      <input type="text" id="m-project" placeholder="e.g. Your Revenue Engine" oninput="autoSaveMorning()">
+    </div>
+    <div class="card">
+      <div class="card-title">// One Next Action</div>
+      <p class="prompt-text">"The smallest possible action that constitutes real progress today."</p>
+      <input type="text" id="m-action" placeholder="e.g. Send one LinkedIn message to a painting contractor" oninput="autoSaveMorning()">
+    </div>
+    <div class="card">
+      <div class="card-title">// What Does a Good Day Look Like?</div>
+      <p class="prompt-text">"Not perfect. Not finished. What would make today feel like a win?"</p>
+      <textarea id="m-goodday" placeholder="Describe it briefly..." oninput="autoSaveMorning()"></textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">// Opening Audit</div>
+      <p class="prompt-text">"Any resistance showing up this morning? Name it here before it names you."</p>
+      <textarea id="m-resist" placeholder="What is your brain telling you right now?" oninput="autoSaveMorning()"></textarea>
+    </div>
+    <button class="save-btn" onclick="saveMorning()">Lock In Today →</button>
+    <div class="saved-msg" id="morning-saved">✓ Locked in. Go get it.</div>
+  </div>
+
+  <!-- THOUGHT RECORD -->
+  <div class="panel" id="panel-thought">
+    <span class="section-label">// Catch. Challenge. Replace.</span>
+    <h1 class="panel-title">THOUGHT<br>RECORD</h1>
+    <p class="panel-sub">Walk through the five steps. Each one defuses the thought a little more.</p>
+    <div class="card" style="padding-top: 32px;">
+      <div class="step-indicator">
+        <div class="step-dot" id="dot-0"></div>
+        <div class="step-dot" id="dot-1"></div>
+        <div class="step-dot" id="dot-2"></div>
+        <div class="step-dot" id="dot-3"></div>
+        <div class="step-dot" id="dot-4"></div>
+        <span class="step-count" id="step-lbl">STEP 1 OF 5</span>
+      </div>
+      <div class="thought-step active" id="ts-0">
+        <div class="step-question">What happened?</div>
+        <div class="step-hint">The triggering event. Just the facts — what actually occurred, not how you felt about it.</div>
+        <textarea id="tr-0" placeholder="e.g. I reached out to three people and none responded."></textarea>
+        <div class="nav-btns"><button class="save-btn" onclick="goStep(1)">Next →</button></div>
+      </div>
+      <div class="thought-step" id="ts-1">
+        <div class="step-question">What did your brain tell you?</div>
+        <div class="step-hint">The automatic thought. Write it exactly as it sounded in your head — raw, unfiltered.</div>
+        <textarea id="tr-1" placeholder="e.g. Nobody wants this. I don't know the right people. This will never work."></textarea>
+        <div class="nav-btns"><button class="ghost-btn" onclick="goStep(0)">← Back</button><button class="save-btn" onclick="goStep(2)">Next →</button></div>
+      </div>
+      <div class="thought-step" id="ts-2">
+        <div class="step-question">What's the distortion?</div>
+        <div class="step-hint">Match it: All-or-nothing · Catastrophizing · Mind reading · Fortune telling · Discounting progress · Premature conclusion</div>
+        <textarea id="tr-2" placeholder="e.g. Mind reading + fortune telling. I'm assuming why they didn't respond and predicting the future from it."></textarea>
+        <div class="nav-btns"><button class="ghost-btn" onclick="goStep(1)">← Back</button><button class="save-btn" onclick="goStep(3)">Next →</button></div>
+      </div>
+      <div class="thought-step" id="ts-3">
+        <div class="step-question">What would you tell a friend?</div>
+        <div class="step-hint">If your closest friend said this thought to you — what would you actually say back? Be that honest and that kind with yourself.</div>
+        <textarea id="tr-3" placeholder="e.g. Three non-responses means nothing about the idea. Keep sending."></textarea>
+        <div class="nav-btns"><button class="ghost-btn" onclick="goStep(2)">← Back</button><button class="save-btn" onclick="goStep(4)">Next →</button></div>
+      </div>
+      <div class="thought-step" id="ts-4">
+        <div class="step-question">What's the replacement thought?</div>
+        <div class="step-hint">Not a positive spin — a more accurate one. Something you can actually believe. What one action does this unlock?</div>
+        <textarea id="tr-4" placeholder="e.g. I've contacted 3 people. I need to send 7 more this week. I track conversations, not closes."></textarea>
+        <div class="nav-btns"><button class="ghost-btn" onclick="goStep(3)">← Back</button><button class="save-btn" onclick="saveThoughtRecord()">Save to Library →</button></div>
+        <div class="saved-msg" id="tr-saved">✓ Saved to your reframe library</div>
+      </div>
+    </div>
+    <button class="ghost-btn" style="margin-left:0;margin-top:8px;" onclick="resetThought()">+ New Record</button>
+  </div>
+
+  <!-- REFRAME LIBRARY -->
+  <div class="panel" id="panel-hurdles">
+    <span class="section-label">// Your personal antidotes</span>
+    <h1 class="panel-title">REFRAME<br>LIBRARY</h1>
+    <p class="panel-sub">Every completed thought record saves here automatically. Add manual entries too. This is your evidence against your own brain.</p>
+    <div class="card">
+      <div class="card-title">// Add a Manual Entry</div>
+      <div class="reframe-row">
+        <div><div class="reframe-label">The Distortion</div><textarea id="lib-d" placeholder="e.g. I don't know the right people." style="min-height:70px;"></textarea></div>
+        <div><div class="reframe-label">The Reframe</div><textarea id="lib-r" placeholder="e.g. I don't know them yet — every person I know was once a stranger." style="min-height:70px;"></textarea></div>
+      </div>
+      <button class="save-btn" onclick="addLibEntry()">Add to Library →</button>
+    </div>
+    <div class="divider"></div>
+    <div class="pill">// Entries</div>
+    <div id="lib-list"></div>
+  </div>
+
+  <!-- ACTIVITY LOG -->
+  <div class="panel" id="panel-activity">
+    <span class="section-label">// What you can control</span>
+    <h1 class="panel-title">ACTIVITY<br>LOG</h1>
+    <p class="panel-sub">You can't control whether someone says yes. You can control how many conversations you have. Tap to count up.</p>
+    <div class="tracker-grid">
+      <div class="metric-box"><div class="metric-num" id="cnt-convos" onclick="bump('convos')">0</div><div class="metric-label">Conversations</div><button class="metric-reset" onclick="resetM('convos')">reset</button></div>
+      <div class="metric-box"><div class="metric-num" id="cnt-out" onclick="bump('outreach')">0</div><div class="metric-label">Outreach Sent</div><button class="metric-reset" onclick="resetM('outreach')">reset</button></div>
+      <div class="metric-box"><div class="metric-num" id="cnt-ref" onclick="bump('referrals')">0</div><div class="metric-label">Referrals Asked</div><button class="metric-reset" onclick="resetM('referrals')">reset</button></div>
+      <div class="metric-box"><div class="metric-num" id="cnt-close" onclick="bump('closes')">0</div><div class="metric-label">Closes</div><button class="metric-reset" onclick="resetM('closes')">reset</button></div>
+    </div>
+    <div class="card">
+      <div class="card-title">// Daily Log Entry</div>
+      <p class="prompt-text">"What actually happened today in terms of action? Be specific."</p>
+      <textarea id="act-entry" placeholder="e.g. Sent 3 LinkedIn messages. Had a real conversation with a contractor. No closes but good data."></textarea>
+      <button class="save-btn" onclick="saveActivity()">Log It →</button>
+      <div class="saved-msg" id="act-saved">✓ Logged</div>
+    </div>
+    <div class="divider"></div>
+    <div class="card-title" style="margin-bottom:14px;">// Recent Entries</div>
+    <div id="act-history"></div>
+  </div>
+
+  <!-- WEEKLY REVIEW -->
+  <div class="panel" id="panel-weekly">
+    <span class="section-label">// Sunday. 45 minutes.</span>
+    <h1 class="panel-title">WEEKLY<br>REVIEW</h1>
+    <p class="panel-sub">Rate your resistance to each project. The highest number gets a dedicated thought record this week.</p>
+    <div class="card">
+      <div class="card-title">// Resistance Check — Rate 1–10</div>
+      <p class="prompt-text" style="margin-bottom:18px;">"Higher = more avoidance. This is data, not judgment."</p>
+      <div id="proj-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">// The Story Audit</div>
+      <p class="prompt-text">"Pick the highest-resistance project. What story are you telling yourself about why it's not moving?"</p>
+      <textarea id="w-story" placeholder="Write it raw. Don't filter it."></textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">// The Actual Obstacle</div>
+      <p class="prompt-text">"Not the story — the real, physical thing. What specific action have you been avoiding?"</p>
+      <textarea id="w-obstacle" placeholder="Be concrete. 'I haven't sent the message' not 'I don't know how to start.'"></textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">// This Week's Commitments</div>
+      <p class="prompt-text">"One priority action per active project. These are promises to yourself."</p>
+      <textarea id="w-commits" placeholder="YRE: &#10;Health: &#10;MitoForge: " style="min-height:130px;"></textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">// Last Week's Win</div>
+      <p class="prompt-text">"Name one thing that moved forward — no matter how small. Evidence against your inner critic."</p>
+      <textarea id="w-win" placeholder="Don't skip this one."></textarea>
+    </div>
+    <button class="save-btn" onclick="saveWeekly()">Save Weekly Review →</button>
+    <div class="saved-msg" id="weekly-saved">✓ Review saved</div>
+  </div>
+
+  <!-- VOICE PROMPTS -->
+  <div class="panel" id="panel-voice">
+    <span class="section-label">// For when you're behind the wheel</span>
+    <h1 class="panel-title">VOICE<br>PROMPTS</h1>
+    <p class="panel-sub">Say these out loud while you drive. The answers don't need to be written — they need to be heard by you.</p>
+    <div class="voice-card" data-num="01"><div class="voice-prompt">What am I telling myself right now?</div><div class="voice-sub">Just name the thought. Naming it gives you distance from it.</div></div>
+    <div class="voice-card" data-num="02"><div class="voice-prompt">Is that actually a fact — or a feeling dressed up as a fact?</div><div class="voice-sub">"Three people didn't respond" is a fact. "Nobody wants this" is a feeling. Which one is it?</div></div>
+    <div class="voice-card" data-num="03"><div class="voice-prompt">What would I tell a friend who said that to me?</div><div class="voice-sub">You're almost always kinder and more rational with others. Use that gap deliberately.</div></div>
+    <div class="voice-card" data-num="04"><div class="voice-prompt">What is my ONE active project right now?</div><div class="voice-sub">Not the roadmap. Not what's next. Right now — what is the one thing? Say it out loud.</div></div>
+    <div class="voice-card" data-num="05"><div class="voice-prompt">What is the one next action I've been avoiding?</div><div class="voice-sub">Not a strategy. The specific, physical thing. "Send a message to X." Do it today.</div></div>
+    <div class="voice-card" data-num="06"><div class="voice-prompt">Am I in my head — or in motion right now?</div><div class="voice-sub">One word. If "in my head" — what's the smallest move you can make in the next hour?</div></div>
+    <div class="voice-card" data-num="07"><div class="voice-prompt">What did I actually do today? Name one thing that counts.</div><div class="voice-sub">"Sent one message" counts. "Thought about sending a message" does not.</div></div>
+    <div class="voice-card" data-num="08"><div class="voice-prompt">Is fear running the show today — or am I?</div><div class="voice-sub">You know the cost of the retreat order. You've named it yourself. Which one is driving right now?</div></div>
+    <div class="divider"></div>
+    <div class="card">
+      <div class="card-title">// Evening Voice Note Template</div>
+      <p class="prompt-text">"Record these three things at the end of each day:"</p>
+      <div style="background:var(--steel);padding:16px 20px;margin-bottom:10px;border-left:3px solid rgba(245,197,24,0.3);"><div class="voice-prompt" style="font-size:15px;">1. One thing that moved forward today, even tiny.</div></div>
+      <div style="background:var(--steel);padding:16px 20px;margin-bottom:10px;border-left:3px solid rgba(245,197,24,0.3);"><div class="voice-prompt" style="font-size:15px;">2. One distorted thought I caught today.</div></div>
+      <div style="background:var(--steel);padding:16px 20px;border-left:3px solid rgba(245,197,24,0.3);"><div class="voice-prompt" style="font-size:15px;">3. Tomorrow's one next action.</div></div>
+    </div>
+  </div>
+
+  <!-- REMINDERS -->
+  <div class="panel" id="panel-reminders">
+    <span class="section-label">// Show up every day</span>
+    <h1 class="panel-title">DAILY<br>REMINDER</h1>
+    <p class="panel-sub">Set a daily email reminder and we'll knock on your door every morning. You do the rest.</p>
+
+    <div class="card" id="reminder-form-card">
+      <div class="card-title">// Set Your Reminder Time</div>
+      <p class="prompt-text">"Pick the time that hits before your day runs away from you."</p>
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:4px;">
+        <div style="flex:1;min-width:140px;">
+          <div class="reframe-label" style="margin-bottom:6px;">Time</div>
+          <input type="time" id="reminder-time" style="background:var(--steel);border:1px solid rgba(245,197,24,0.2);color:var(--white);font-family:'DM Mono',monospace;font-size:16px;padding:12px 14px;width:100%;outline:none;cursor:pointer;">
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <div class="reframe-label" style="margin-bottom:6px;">Timezone</div>
+          <select id="reminder-tz" style="background:var(--steel);border:1px solid rgba(245,197,24,0.2);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:1px;padding:12px 14px;width:100%;outline:none;cursor:pointer;">
+            <option value="America/Los_Angeles">Pacific (PT)</option>
+            <option value="America/Denver">Mountain (MT)</option>
+            <option value="America/Chicago">Central (CT)</option>
+            <option value="America/New_York">Eastern (ET)</option>
+            <option value="America/Anchorage">Alaska (AKT)</option>
+            <option value="Pacific/Honolulu">Hawaii (HT)</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div class="reframe-label" style="margin-bottom:10px;">Send on these days</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="day-toggles">
+          <button class="day-btn active" data-day="0">SUN</button>
+          <button class="day-btn active" data-day="1">MON</button>
+          <button class="day-btn active" data-day="2">TUE</button>
+          <button class="day-btn active" data-day="3">WED</button>
+          <button class="day-btn active" data-day="4">THU</button>
+          <button class="day-btn active" data-day="5">FRI</button>
+          <button class="day-btn active" data-day="6">SAT</button>
+        </div>
+      </div>
+      <button class="save-btn" style="margin-top:20px;" onclick="saveReminder()">Set Reminder →</button>
+      <div class="saved-msg" id="reminder-saved">✓ Reminder set. We'll see you tomorrow morning.</div>
+      <div class="saved-msg" id="reminder-error" style="color:var(--accent);">Something went wrong — try again.</div>
+    </div>
+
+    <div class="card" id="reminder-status-card" style="display:none;">
+      <div class="card-title">// Your Reminder</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--yellow);line-height:1;" id="status-time">—</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:4px;" id="status-days">—</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:1px;" id="status-tz">—</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="save-btn" style="margin-top:0;" onclick="editReminder()">Change Time →</button>
+          <button class="ghost-btn" style="margin-top:0;margin-left:0;" onclick="unsubscribeReminder()">Unsubscribe</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px;">
+      <div class="card-title">// What the email looks like</div>
+      <p class="prompt-text">"Here's what lands in your inbox every morning:"</p>
+      <div style="background:var(--steel);padding:20px 24px;border-left:3px solid var(--yellow);">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--yellow);margin-bottom:10px;">From: Dustin @ YRE</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:var(--white);margin-bottom:12px;">Subject: Your ORE is waiting. 5 minutes.</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.8;">
+          Hey — it's that time.<br><br>
+          One project. One action. Five minutes.<br><br>
+          That's all today asks of you.<br><br>
+          <span style="color:var(--yellow);">→ Open ORE and do the work</span><br><br>
+          — Dustin
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tape" style="margin-top:80px;"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// KEY GENERATION
+// Generates a deterministic 8-char key from an email address.
+// Same email always produces the same key.
+// Zapier uses this same algorithm to generate & email the key.
+// ─────────────────────────────────────────────
+function generateKey(email) {
+  const e = email.toLowerCase().trim();
+  const salt = 'ORE-YRE-2025'; // change this secret if you ever need to rotate keys
+  const str = e + salt;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let key = '';
+  let h = Math.abs(hash);
+  for (let i = 0; i < 8; i++) {
+    key += chars[h % chars.length];
+    h = Math.floor(h / chars.length) + (str.charCodeAt(i % str.length) * 31);
+  }
+  return key;
+}
+
+// ─────────────────────────────────────────────
+// LOGIN
+// ─────────────────────────────────────────────
+function tryLogin() {
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const key = document.getElementById('login-key').value.trim().toUpperCase();
+  const errEl = document.getElementById('login-error');
+
+  if (!email || !key) { errEl.textContent = 'Enter your email and access key.'; return; }
+
+  const expected = generateKey(email);
+  if (key === expected) {
+    localStorage.setItem('ore_email', email);
+    localStorage.setItem('ore_auth', '1');
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('nav-user').textContent = email;
+    init();
+  } else {
+    errEl.textContent = 'Key not recognized. Check your welcome email.';
+    document.getElementById('login-key').value = '';
+    document.getElementById('login-key').focus();
+  }
+}
+
+function logout() {
+  localStorage.removeItem('ore_auth');
+  localStorage.removeItem('ore_email');
+  location.reload();
+}
+
+// Auto-login if already authenticated
+window.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('ore_auth') === '1') {
+    const email = localStorage.getItem('ore_email') || '';
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('nav-user').textContent = email;
+    init();
+  }
+});
+
+// ─────────────────────────────────────────────
+// STORAGE — scoped per email so each user's data is separate
+// ─────────────────────────────────────────────
+function userKey(k) {
+  const email = localStorage.getItem('ore_email') || 'guest';
+  return 'ore_' + email.replace(/[^a-z0-9]/g,'_') + '_' + k;
+}
+function S(k, v) { try { localStorage.setItem(userKey(k), JSON.stringify(v)); } catch(e){} }
+function L(k, fb) { try { const v = localStorage.getItem(userKey(k)); return v !== null ? JSON.parse(v) : fb; } catch(e){ return fb; } }
+function today() { return new Date().toISOString().split('T')[0]; }
+function weekKey() {
+  const d = new Date(), j = new Date(d.getFullYear(),0,1);
+  return d.getFullYear()+'w'+Math.ceil(((d-j)/86400000+j.getDay()+1)/7);
+}
+
+// TABS
+function switchTab(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+id).classList.add('active');
+}
+
+// MORNING
+function loadMorning() {
+  const d = L('morning_'+today(), {});
+  ['project','action','goodday','resist'].forEach(k => {
+    const el = document.getElementById('m-'+k);
+    if (el && d[k]) el.value = d[k];
+  });
+}
+function autoSaveMorning() {
+  S('morning_'+today(), {
+    project: document.getElementById('m-project').value,
+    action: document.getElementById('m-action').value,
+    goodday: document.getElementById('m-goodday').value,
+    resist: document.getElementById('m-resist').value
+  });
+}
+function saveMorning() {
+  autoSaveMorning();
+  const t = today(), last = L('last_day',''), streak = L('streak',0), total = L('total',0);
+  const yest = new Date(); yest.setDate(yest.getDate()-1);
+  const yStr = yest.toISOString().split('T')[0];
+  if (t !== last) {
+    S('total', total+1);
+    S('streak', last === yStr ? streak+1 : 1);
+    S('last_day', t);
+  }
+  updateStats();
+  flash('morning-saved');
+}
+function updateStats() {
+  document.getElementById('streak-val').textContent = L('streak',0);
+  document.getElementById('total-val').textContent = L('total',0);
+  document.getElementById('convos-stat').textContent = (L('metrics',{convos:0}).convos)||0;
+}
+
+// THOUGHT RECORD
+let step = 0;
+function updateDots() {
+  for (let i=0;i<5;i++) {
+    const d = document.getElementById('dot-'+i);
+    d.className = 'step-dot'+(i<step?' done':i===step?' current':'');
+  }
+  document.getElementById('step-lbl').textContent = 'STEP '+(step+1)+' OF 5';
+}
+function goStep(n) {
+  document.getElementById('ts-'+step).classList.remove('active');
+  step = n;
+  document.getElementById('ts-'+n).classList.add('active');
+  updateDots();
+}
+function saveThoughtRecord() {
+  const thought = document.getElementById('tr-1').value.trim();
+  const replace = document.getElementById('tr-4').value.trim();
+  if (!thought || !replace) { alert('Please complete the thought and replacement fields.'); return; }
+  const lib = L('library', defaultLib());
+  lib.unshift({ distortion: thought, reframe: replace, date: today() });
+  S('library', lib);
+  renderLib();
+  flash('tr-saved');
+}
+function resetThought() {
+  for(let i=0;i<5;i++) document.getElementById('tr-'+i).value='';
+  goStep(0);
+}
+
+// LIBRARY
+function defaultLib() {
+  return [
+    { distortion: "I don't know the right people.", reframe: "I don't know them yet. Every person I know now was once a stranger. The right people are 1–2 introductions away." },
+    { distortion: "This is impossible — the challenges are too great.", reframe: "What specifically is hard? Name the actual obstacle. Vague impossibility is not a fact." },
+    { distortion: "I'm falling behind.", reframe: "Behind what timeline? Who set it? Is it real, or is it a story?" },
+    { distortion: "I got rejected.", reframe: "People in your existing circle are the hardest sell. Strangers with the problem are the easiest. This data means almost nothing." },
+    { distortion: "No one responded — nobody wants this.", reframe: "Non-response is noise, not rejection. Track conversations, not closes." },
+    { distortion: "I should be further along by now.", reframe: "Did I take the one next action? If yes, I'm on track. That's the only question that matters." }
+  ];
+}
+function renderLib() {
+  const lib = L('library', defaultLib());
+  const el = document.getElementById('lib-list');
+  if (!lib.length) { el.innerHTML='<p style="color:var(--muted);font-size:14px;">No entries yet.</p>'; return; }
+  el.innerHTML = lib.map((e,i) => `
+    <div class="library-entry">
+      <div class="library-entry-text">
+        <div class="library-distortion">"${e.distortion}"</div>
+        <div class="library-reframe">→ ${e.reframe}</div>
+      </div>
+      <button class="del-btn" onclick="delLib(${i})">✕</button>
+    </div>`).join('');
+}
+function addLibEntry() {
+  const d = document.getElementById('lib-d').value.trim();
+  const r = document.getElementById('lib-r').value.trim();
+  if (!d || !r) return;
+  const lib = L('library', defaultLib());
+  lib.unshift({ distortion: d, reframe: r, date: today() });
+  S('library', lib);
+  renderLib();
+  document.getElementById('lib-d').value='';
+  document.getElementById('lib-r').value='';
+}
+function delLib(i) {
+  const lib = L('library', defaultLib());
+  lib.splice(i,1); S('library',lib); renderLib();
+}
+
+// ACTIVITY
+function loadMetrics() {
+  const m = L('metrics',{convos:0,outreach:0,referrals:0,closes:0});
+  document.getElementById('cnt-convos').textContent = m.convos||0;
+  document.getElementById('cnt-out').textContent = m.outreach||0;
+  document.getElementById('cnt-ref').textContent = m.referrals||0;
+  document.getElementById('cnt-close').textContent = m.closes||0;
+}
+function bump(k) {
+  const m = L('metrics',{convos:0,outreach:0,referrals:0,closes:0});
+  m[k]=(m[k]||0)+1; S('metrics',m); loadMetrics(); updateStats();
+}
+function resetM(k) {
+  const m = L('metrics',{convos:0,outreach:0,referrals:0,closes:0});
+  m[k]=0; S('metrics',m); loadMetrics();
+}
+function saveActivity() {
+  const txt = document.getElementById('act-entry').value.trim();
+  if (!txt) return;
+  const h = L('act_hist',[]);
+  h.unshift({date:today(), text:txt});
+  if(h.length>30) h.pop();
+  S('act_hist',h);
+  document.getElementById('act-entry').value='';
+  renderActHistory();
+  flash('act-saved');
+}
+function renderActHistory() {
+  const h = L('act_hist',[]);
+  const el = document.getElementById('act-history');
+  if (!h.length) { el.innerHTML='<p style="color:var(--muted);font-size:14px;">No entries yet.</p>'; return; }
+  el.innerHTML = h.slice(0,10).map(e=>`
+    <div style="background:var(--steel);padding:14px 16px;margin-bottom:8px;border-left:3px solid rgba(245,197,24,0.3);">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;">${e.date}</div>
+      <div style="font-size:14px;color:var(--white);line-height:1.6;">${e.text}</div>
+    </div>`).join('');
+}
+
+// WEEKLY
+const PROJECTS = [
+  {id:'yre',name:'Your Revenue Engine'},
+  {id:'mitoforge',name:'MitoForge'},
+  {id:'duh',name:'Duh Shoes'},
+  {id:'tallowell',name:'Tallowell'},
+  {id:'logos',name:'Logos Cars'},
+  {id:'alaska',name:'Alaskan Hydropower'},
+  {id:'health',name:'Health / Fitness'}
+];
+function renderProjects() {
+  const res = L('resistance',{});
+  document.getElementById('proj-list').innerHTML = PROJECTS.map(p => {
+    const v = res[p.id]||1;
+    const cls = v>=7?'high':v>=4?'mid':'low';
+    return `<div class="project-row ${cls}" id="pr-${p.id}">
+      <div class="project-name">${p.name}</div>
+      <div class="resistance-wrap">
+        <input type="range" min="1" max="10" value="${v}" oninput="updateRes('${p.id}',this.value)">
+        <div class="resistance-val" id="rv-${p.id}">${v}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function updateRes(id, v) {
+  const res = L('resistance',{}); res[id]=parseInt(v); S('resistance',res);
+  document.getElementById('rv-'+id).textContent=v;
+  const row = document.getElementById('pr-'+id);
+  row.className='project-row '+(v>=7?'high':v>=4?'mid':'low');
+}
+function loadWeekly() {
+  const w = L('weekly_'+weekKey(),{});
+  ['story','obstacle','commits','win'].forEach(k => {
+    const el = document.getElementById('w-'+k);
+    if(el && w[k]) el.value=w[k];
+  });
+}
+function saveWeekly() {
+  S('weekly_'+weekKey(), {
+    story: document.getElementById('w-story').value,
+    obstacle: document.getElementById('w-obstacle').value,
+    commits: document.getElementById('w-commits').value,
+    win: document.getElementById('w-win').value
+  });
+  flash('weekly-saved');
+}
+
+// UTIL
+function flash(id) {
+  const el = document.getElementById(id);
+  el.style.display='block';
+  setTimeout(()=>{ el.style.display='none'; }, 3000);
+}
+
+function init() {
+  loadMorning(); updateDots(); renderLib();
+  loadMetrics(); renderActHistory(); renderProjects(); loadWeekly(); updateStats();
+  initDayToggles(); loadReminderStatus();
+}
+
+// ─────────────────────────────────────────────
+// REMINDERS
+// ─────────────────────────────────────────────
+function initDayToggles() {
+  document.querySelectorAll('.day-btn').forEach(btn => {
+    btn.addEventListener('click', () => btn.classList.toggle('active'));
+  });
+}
+
+function getActiveDays() {
+  return Array.from(document.querySelectorAll('.day-btn.active')).map(b => parseInt(b.dataset.day));
+}
+
+async function saveReminder() {
+  const time = document.getElementById('reminder-time').value;
+  const tz   = document.getElementById('reminder-tz').value;
+  const days  = getActiveDays();
+  const email = localStorage.getItem('ore_email');
+
+  if (!time) { alert('Please select a time.'); return; }
+  if (!days.length) { alert('Please select at least one day.'); return; }
+
+  const btn = document.querySelector('#reminder-form-card .save-btn');
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/.netlify/functions/save-reminder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, time, tz, days, subscribed: true })
+    });
+    if (!res.ok) throw new Error('Server error');
+    S('reminder', { time, tz, days, subscribed: true });
+    flash('reminder-saved');
+    setTimeout(() => loadReminderStatus(), 1500);
+  } catch(e) {
+    flash('reminder-error');
+  } finally {
+    btn.textContent = 'Set Reminder →';
+    btn.disabled = false;
+  }
+}
+
+async function unsubscribeReminder() {
+  if (!confirm('Stop daily reminders?')) return;
+  const email = localStorage.getItem('ore_email');
+  try {
+    await fetch('/.netlify/functions/save-reminder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, subscribed: false })
+    });
+    S('reminder', { subscribed: false });
+    loadReminderStatus();
+  } catch(e) {}
+}
+
+function editReminder() {
+  const saved = L('reminder', null);
+  document.getElementById('reminder-status-card').style.display = 'none';
+  document.getElementById('reminder-form-card').style.display = 'block';
+  if (saved) {
+    if (saved.time) document.getElementById('reminder-time').value = saved.time;
+    if (saved.tz) document.getElementById('reminder-tz').value = saved.tz;
+    if (saved.days) {
+      document.querySelectorAll('.day-btn').forEach(btn => {
+        btn.classList.toggle('active', saved.days.includes(parseInt(btn.dataset.day)));
+      });
+    }
+  }
+}
+
+function loadReminderStatus() {
+  const saved = L('reminder', null);
+  const formCard   = document.getElementById('reminder-form-card');
+  const statusCard = document.getElementById('reminder-status-card');
+  if (!saved || !saved.subscribed || !saved.time) {
+    formCard.style.display = 'block';
+    statusCard.style.display = 'none';
+    return;
+  }
+  formCard.style.display = 'none';
+  statusCard.style.display = 'block';
+  // Format time for display
+  const [h, m] = saved.time.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  document.getElementById('status-time').textContent = `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  document.getElementById('status-days').textContent = saved.days.map(d => dayNames[d]).join(' · ');
+  document.getElementById('status-tz').textContent = saved.tz || '';
+}
+</script>
+</body>
+</html>
